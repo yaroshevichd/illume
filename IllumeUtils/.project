@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>IllumeUtils</name>
+	<comment></comment>
+	<projects>
+	</projects>
+	<buildSpec>
+	</buildSpec>
+	<natures>
+	</natures>
+	<linkedResources>
+		<link>
+			<name>IllumeUtils.h</name>
+			<type>1</type>
+			<locationURI>WORKSPACE_LOC/libraries/IllumeUtils/src/IllumeUtils.h</locationURI>
+		</link>
+		<link>
+			<name>Illume_CmdParser.cpp</name>
+			<type>1</type>
+			<locationURI>WORKSPACE_LOC/libraries/IllumeUtils/src/Illume_CmdParser.cpp</locationURI>
+		</link>
+	</linkedResources>
+</projectDescription>
