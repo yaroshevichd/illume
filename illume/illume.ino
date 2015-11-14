@@ -1,6 +1,7 @@
 //#define _DEBUG
 #include <TaskScheduler.h>
 #include <IllumeUtils.h>
+#include <ArduinoUnit.h>
 
 #define LEN(x) (sizeof(x)/sizeof(x[0]))
 
@@ -262,14 +263,16 @@ LedInfo g_Leds[] = {
 };
 
 
-void processLeds() {
+void processLeds()
+{
     for (unsigned i = 0; i < LEN(g_Leds); ++i)
     {
         g_Leds[i].process();
     }
 }
 
-void setupLeds() {
+void setupLeds()
+{
     for (unsigned i = 0; i < LEN(g_Leds); ++i)
     {
         pinMode(g_Leds[i].m_pin, OUTPUT);
@@ -277,9 +280,43 @@ void setupLeds() {
     }
 }
 
+void readCommandFromSerial()
+{
+    if (Serial.available() > 0)
+    {
+        Command* cmd = readCommand(Serial);
+        if (cmd != NULL)
+        {
+            Serial.print("type: ");
+            Serial.print(cmd->type);
+            Serial.print(", argc: ");
+            Serial.print(cmd->argc);
+            Serial.println(", params:");
+            for (int i = 0; i < cmd->argc; ++i)
+            {
+                SaveCfgCommand::SaveCfgParam* params =
+                    reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmd->argv);
+                Serial.print("name: ");
+                Serial.print((char)params[i].name);
+                Serial.print(", effect: ");
+                Serial.print((char)params[i].effect);
+                Serial.print(", ticks: ");
+                Serial.print(params[i].ticks);
+                Serial.print(", extra: ");
+                Serial.print((int)params[i].extra[0]);
+                Serial.println((int)params[i].extra[1]);
+            }
+            delete cmd;
+        }
+        Serial.print("*** ");
+        Serial.println(freeMemory());
+    }
+}
+
 
 Task g_taskSetupLeds(0, 1, &setupLeds);
 Task g_taskProcessLeds(15, -1, &processLeds);
+Task g_taskReadCommand(50, -1, &readCommandFromSerial);
 Scheduler g_taskManager;
 
 
@@ -289,6 +326,7 @@ void setup()
     g_taskManager.init();
     g_taskManager.addTask(g_taskSetupLeds);
     g_taskManager.addTask(g_taskProcessLeds);
+    g_taskManager.addTask(g_taskReadCommand);
     g_taskManager.enableAll();
 }
 

@@ -27,6 +27,11 @@
 	</natures>
 	<linkedResources>
 		<link>
+			<name>Libraries/ArduinoUnit</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/ArduinoUnit</locationURI>
+		</link>
+		<link>
 			<name>Libraries/IllumeUtils</name>
 			<type>2</type>
 			<locationURI>ArduinoPivateLibPath/IllumeUtils</locationURI>

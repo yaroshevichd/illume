@@ -7,24 +7,94 @@ enum CommandType
 {
     CommandType_SaveCfg,
     CommandType_LoadCfg,
-    CommandType_Test,
     CommandType_None
+};
+
+enum LedName
+{
+    LedName_None = 0,
+    LedName_Red = 'r',
+    LedName_Green = 'g',
+    LedName_Blue = 'b',
+    LedName_Yellow = 'y',
+    LedName_White = 'w'
+};
+
+enum LedEffect
+{
+    LedEffect_None = 0,
+    LedEffect_On = 'x',
+    LedEffect_Off = 'o',
+    LedEffect_FadeIn = '/',
+    LedEffect_FadeOut = '\\'
+};
+
+enum LedFadeType
+{
+    LedFadeType_Linear = '-',
+    LedFadeType_Exponential = 'e'
 };
 
 struct Command
 {
-	CommandType m_type;
-	int m_argc;
-	String* m_argv;
+    struct CommandParam
+    {
+    };
 
-    Command()
-        : m_type(CommandType_None)
-		, m_argc(-1)
-		, m_argv(NULL)
+    CommandType type;
+    int argc;
+    CommandParam* argv;
+
+    Command(const CommandType type, const int argc, CommandParam* const argv)
+        : type(type)
+        , argc(argc)
+        , argv(argv)
+    {}
+
+    ~Command()
+    {
+        delete [] argv;
+    }
+};
+
+struct SaveCfgCommand : Command
+{
+    struct SaveCfgParam : public CommandParam
+    {
+        LedName name;
+        LedEffect effect;
+        int ticks;
+        char extra[2];
+
+        SaveCfgParam()
+            : name(LedName_None)
+            , effect(LedEffect_None)
+            , ticks(0)
+        {
+            extra[0] = extra[1] = 0;
+        }
+    };
+
+    SaveCfgCommand(const int argc, CommandParam* const argv)
+        : Command(CommandType_SaveCfg, argc, argv)
+    {}
+
+        SaveCfgParam* params() const
+    {
+        return reinterpret_cast<SaveCfgParam*>(argv);
+    }
+};
+
+struct LoadCfgCommand : Command
+{
+    LoadCfgCommand()
+        : Command(CommandType_LoadCfg, -1, NULL)
     {}
 };
 
-struct Command readCommand(Stream &input);
+Command* readCommand(Stream &input);
+
+
 
 
 class StringStream : public Stream
@@ -65,7 +135,7 @@ public:
     // Print methods
     virtual size_t write(uint8_t /*c*/)
     {
-    	return 0;
+        return 0;
     };
 };
 
