@@ -92,7 +92,21 @@ struct LoadCfgCommand : Command
     {}
 };
 
-Command* readCommand(Stream &input);
+
+enum ParserState
+{
+    ParserState_Begin,
+    ParserState_ParseCommandType,
+    ParserState_ParseCommandValue,
+    ParserState_ParseCommandArgValue,
+    ParserState_ParseCommandArgsCountValue,
+    ParserState_Done
+};
+
+extern struct Command g_Command;
+
+void resetParser();
+ParserState parseInput(Stream &input);
 
 
 
