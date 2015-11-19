@@ -284,9 +284,9 @@ void readCommandFromSerial()
 {
     if (Serial.available() > 0)
     {
-        Command* cmd = readCommand(Serial);
-        if (cmd != NULL)
+        if (g_CmdParser->parse(Serial) == ParserState_Done)
         {
+            const Command* cmd = g_CmdParser->command();
             Serial.print("type: ");
             Serial.print(cmd->type);
             Serial.print(", argc: ");
@@ -296,7 +296,7 @@ void readCommandFromSerial()
             {
                 SaveCfgCommand::SaveCfgParam* params =
                     reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmd->argv);
-                Serial.print("name: ");
+                Serial.print("  name: ");
                 Serial.print((char)params[i].name);
                 Serial.print(", effect: ");
                 Serial.print((char)params[i].effect);
@@ -306,7 +306,6 @@ void readCommandFromSerial()
                 Serial.print((int)params[i].extra[0]);
                 Serial.println((int)params[i].extra[1]);
             }
-            delete cmd;
         }
         Serial.print("*** ");
         Serial.println(freeMemory());

@@ -51,10 +51,11 @@ struct Command
         , argv(argv)
     {}
 
-    ~Command()
-    {
-        delete [] argv;
-    }
+//    virtual ~Command()
+//    {
+//        Serial.println("~Command");
+//        delete [] argv;
+//    }
 };
 
 struct SaveCfgCommand : Command
@@ -79,7 +80,7 @@ struct SaveCfgCommand : Command
         : Command(CommandType_SaveCfg, argc, argv)
     {}
 
-        SaveCfgParam* params() const
+    SaveCfgParam* params() const
     {
         return reinterpret_cast<SaveCfgParam*>(argv);
     }
@@ -100,15 +101,20 @@ enum ParserState
     ParserState_ParseCommandValue,
     ParserState_ParseCommandArgValue,
     ParserState_ParseCommandArgsCountValue,
+    ParserState_Continue,
     ParserState_Done
 };
 
-extern struct Command g_Command;
+class CommandParser
+{
+public:
+    virtual ~CommandParser() {}
+    virtual void reset() = 0;
+    virtual ParserState parse(Stream &input) = 0;
+    virtual const Command* command() const = 0;
+};
 
-void resetParser();
-ParserState parseInput(Stream &input);
-
-
+extern CommandParser* g_CmdParser;
 
 
 class StringStream : public Stream
