@@ -50,12 +50,6 @@ struct Command
         , argc(argc)
         , argv(argv)
     {}
-
-//    virtual ~Command()
-//    {
-//        Serial.println("~Command");
-//        delete [] argv;
-//    }
 };
 
 struct SaveCfgCommand : Command
@@ -89,7 +83,7 @@ struct SaveCfgCommand : Command
 struct LoadCfgCommand : Command
 {
     LoadCfgCommand()
-        : Command(CommandType_LoadCfg, -1, NULL)
+        : Command(CommandType_LoadCfg, 0, NULL)
     {}
 };
 
@@ -111,7 +105,7 @@ public:
     virtual ~CommandParser() {}
     virtual void reset() = 0;
     virtual ParserState parse(Stream &input) = 0;
-    virtual const Command* command() const = 0;
+    virtual const Command* command() = 0;
 };
 
 extern CommandParser* g_CmdParser;

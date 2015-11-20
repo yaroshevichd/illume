@@ -1,14 +1,21 @@
+//#define _DEBUG_CMD_PARSER
 #include <Arduino.h>
 #include "IllumeUtils.h"
 #include <stdlib.h>
 
 #define TOKEN_COMMAND_DELIMITER '$'
+#define TOKEN_COMMAND_END_DELIMITER '#'
 #define TOKEN_COMMAND_ARGS_DELIMITER ','
 #define TOKEN_COMMAND_ARG_FIELD_DELIMITER ':'
 
 
 LedName parseLedName(const String& token)
 {
+#ifdef _DEBUG_CMD_PARSER
+    Serial.print("CmdParser: parseLedName(");
+    Serial.print(token);
+    Serial.println(")");
+#endif
     if (token.length() == 1)
     {
         switch (token[0])
@@ -30,6 +37,11 @@ LedName parseLedName(const String& token)
 
 LedEffect parseLedEffect(const String& token)
 {
+#ifdef _DEBUG_CMD_PARSER
+    Serial.print("CmdParser: parseLedEffect(");
+    Serial.print(token);
+    Serial.println(")");
+#endif
     if (token.length() == 1)
     {
         switch (token[0])
@@ -49,6 +61,11 @@ LedEffect parseLedEffect(const String& token)
 
 CommandType parseCommandType(const String& token)
 {
+#ifdef _DEBUG_CMD_PARSER
+    Serial.print("CmdParser: parseCommandType(");
+    Serial.print(token);
+    Serial.println(")");
+#endif
     if (token.equals("save-cfg"))
     {
         return CommandType_SaveCfg;
@@ -65,7 +82,6 @@ class CommandParserImpl : public CommandParser
 {
     String token;
     int argsLeft;
-    int argIndex;
     int fieldIndex;
     ParserState state;
 
@@ -79,7 +95,6 @@ public:
     CommandParserImpl()
         : token()
         , argsLeft(0)
-        , argIndex(0)
         , fieldIndex(0)
         , state(ParserState_Begin)
         , cmdArgs(-1)
@@ -92,6 +107,9 @@ public:
 
     virtual void reset()
     {
+#ifdef _DEBUG_CMD_PARSER
+        Serial.println("CmdParser::reset");
+#endif
         resetState();
         resetToken();
         resetCommand();
@@ -100,12 +118,16 @@ public:
 
     virtual ParserState parse(Stream &input)
     {
+#ifdef _DEBUG_CMD_PARSER
+        Serial.println("CmdParser::parse");
+#endif
         if (state == ParserState_Done)
         {
             reset();
         }
 
-        while (state != ParserState_Done && state != ParserState_Continue)
+        bool moreDataRequired = false;
+        while (state != ParserState_Done && !moreDataRequired)
         {
             const int this_char = input.peek();
 //            Serial.print((char)this_char);
@@ -113,144 +135,137 @@ public:
             switch (state)
             {
             case ParserState_Begin:
-                if (this_char == TOKEN_COMMAND_DELIMITER)
+                switch (this_char)
                 {
-                    state = ParserState_ParseCommandValue;
+                case TOKEN_COMMAND_DELIMITER:
+                    switchState(ParserState_ParseCommandValue);
                     resetIndexes();
+                    break;
+                default:
+                    break;
                 }
-                input.read();
+                skip(input);
                 break;
             case ParserState_ParseCommandValue:
-                if (this_char == TOKEN_COMMAND_DELIMITER ||
-                    this_char == TOKEN_COMMAND_ARGS_DELIMITER ||
-                    this_char <= 0)
+                switch (this_char)
                 {
+                case TOKEN_COMMAND_END_DELIMITER:
+                case TOKEN_COMMAND_ARGS_DELIMITER:
                     cmdType = parseCommandType(token);
-                    switchState((this_char == TOKEN_COMMAND_ARGS_DELIMITER)
-                        ? (cmdType == CommandType_SaveCfg
-                            ? ParserState_ParseCommandArgsCountValue
-                            : ParserState_ParseCommandArgValue)
-                        : ParserState_Done);
-                    if (this_char == TOKEN_COMMAND_ARGS_DELIMITER || this_char == 0)
+                    switch (cmdType)
                     {
-                        input.read();
+                    case CommandType_SaveCfg:
+                        switchState(ParserState_ParseCommandArgsCountValue);
+                        break;
+                    default:
+                        switchState(ParserState_Done);
+                        break;
                     }
                     resetToken();
-                }
-                else
-                {
+                    skip(input);
+                    break;
+                case 0:
+                case -1:
+                    moreDataRequired = true;
+                    skip(input);
+                    break;
+                default:
                     consume(input);
+                    break;
                 }
                 break;
             case ParserState_ParseCommandArgsCountValue:
-                if (this_char == TOKEN_COMMAND_DELIMITER ||
-                    this_char == TOKEN_COMMAND_ARGS_DELIMITER ||
-                    this_char <= 0)
+                switch (this_char)
                 {
+                case TOKEN_COMMAND_END_DELIMITER:
+                    switchState(ParserState_Done);
+                    resetToken();
+                    break;
+                case TOKEN_COMMAND_ARGS_DELIMITER:
+                    fieldIndex = 0;
                     argsLeft = cmdArgs = token.toInt();
                     cmdParams = instanceParamsByType(cmdType, cmdArgs);
-                    switchState((this_char == TOKEN_COMMAND_ARGS_DELIMITER)
-                        ? ParserState_ParseCommandArgValue
-                        : ParserState_Done);
-                    if (this_char == TOKEN_COMMAND_ARGS_DELIMITER || this_char == 0)
-                    {
-                        input.read();
-                    }
+                    switchState(ParserState_ParseCommandArgValue);
                     resetToken();
-                }
-                else
-                {
+                    skip(input);
+                    break;
+                case 0:
+                case -1:
+                    moreDataRequired = true;
+                    skip(input);
+                    break;
+                default:
                     consume(input);
+                    break;
                 }
                 break;
             case ParserState_ParseCommandArgValue:
-                if (this_char == TOKEN_COMMAND_DELIMITER ||
-                    this_char == TOKEN_COMMAND_ARGS_DELIMITER ||
-                    this_char == TOKEN_COMMAND_ARG_FIELD_DELIMITER ||
-                    this_char <= 0)
+                switch (this_char)
                 {
-                    if (this_char != TOKEN_COMMAND_ARG_FIELD_DELIMITER)
-                    {
-                        --argsLeft;
-                    }
-                    if (cmdParams != NULL && argsLeft >= 0)
-                    {
-                        switch (cmdType)
-                        {
-                        case CommandType_SaveCfg:
-                            switch (fieldIndex)
-                            {
-                            case 0:
-                                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[argIndex].name = parseLedName(token);
-                                break;
-                            case 1:
-                                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[argIndex].effect = parseLedEffect(token);
-                                break;
-                            case 2:
-                                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[argIndex].ticks = token.toInt();
-                                break;
-                            case 3:
-                                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[argIndex].extra[0] = token[0];
-                                if (token.length() > 1)
-                                {
-                                    reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[argIndex].extra[1] = token[1];
-                                }
-                                break;
-                            default:
-                                break;
-                            }
-                            ++fieldIndex;
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                    if (this_char == TOKEN_COMMAND_ARGS_DELIMITER)
+                case TOKEN_COMMAND_END_DELIMITER:
+                    switchState(ParserState_Done);
+                    parseCommandArg();
+                    resetToken();
+                    break;
+                case TOKEN_COMMAND_ARGS_DELIMITER:
+                    --argsLeft;
+                    if (argsLeft >= 0)
                     {
                         fieldIndex = 0;
-                        ++argIndex;
-                    }
-                    switchState((this_char == TOKEN_COMMAND_ARGS_DELIMITER || this_char == TOKEN_COMMAND_ARG_FIELD_DELIMITER)
-                        ? ParserState_ParseCommandArgValue
-                        : ParserState_Done);
-                    if (this_char == TOKEN_COMMAND_ARGS_DELIMITER || this_char == TOKEN_COMMAND_ARG_FIELD_DELIMITER || this_char == 0)
-                    {
-                        input.read();
+                        parseCommandArg();
+                        ++fieldIndex;
                     }
                     resetToken();
-                }
-                else
-                {
+                    skip(input);
+                    break;
+                case TOKEN_COMMAND_ARG_FIELD_DELIMITER:
+                    parseCommandArg();
+                    ++fieldIndex;
+                    resetToken();
+                    skip(input);
+                    break;
+                case 0:
+                case -1:
+                    moreDataRequired = true;
+                    skip(input);
+                    break;
+                default:
                     consume(input);
+                    break;
                 }
                 break;
             default:
                 Serial.println(token);
                 if (this_char >= 0)
                 {
-                    input.read();
+                    skip(input);
                 }
-                switchState(ParserState_Continue);
                 break;
             }
         };
 
-        if (state == ParserState_Done)
+        return moreDataRequired ? ParserState_Continue : state;
+    }
+
+    virtual const Command* command()
+    {
+#ifdef _DEBUG_CMD_PARSER
+        Serial.println("CmdParser::command");
+#endif
+        if (state == ParserState_Done && cmdParsed == NULL)
         {
             switch (cmdType)
             {
             case CommandType_SaveCfg:
                 cmdParsed = new SaveCfgCommand(cmdArgs, cmdParams);
                 break;
+            case CommandType_LoadCfg:
+                cmdParsed = new LoadCfgCommand();
+                break;
             default:
                 break;
             }
         }
-        return state;
-    }
-
-    virtual const Command* command() const
-    {
         return cmdParsed;
     }
 
@@ -262,7 +277,7 @@ private:
 
     void resetIndexes()
     {
-        argsLeft = argIndex = fieldIndex = 0;
+        argsLeft = fieldIndex = 0;
     }
 
     void resetCommand()
@@ -291,11 +306,19 @@ private:
         token += (char)input.read();
     }
 
+    void skip(Stream& input)
+    {
+        input.read();
+    }
+
     void switchState(const ParserState new_state)
     {
-//        Serial.print(state);
-//        Serial.print(" -> ");
-//        Serial.println(new_state);
+#ifdef _DEBUG_CMD_PARSER
+        Serial.print("CmdParser: ");
+        Serial.print(state);
+        Serial.print(" -> ");
+        Serial.println(new_state);
+#endif
         state = new_state;
     }
 
@@ -307,6 +330,39 @@ private:
             return new SaveCfgCommand::SaveCfgParam[argc];
         default:
             return NULL;
+        }
+    }
+
+    void parseCommandArg()
+    {
+        const int index = cmdArgs - argsLeft;
+        switch (cmdType)
+        {
+        case CommandType_SaveCfg:
+            switch (fieldIndex)
+            {
+            case 0:
+                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].name = parseLedName(token);
+                break;
+            case 1:
+                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].effect = parseLedEffect(token);
+                break;
+            case 2:
+                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].ticks = token.toInt();
+                break;
+            case 3:
+                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].extra[0] = token[0];
+                if (token.length() > 1)
+                {
+                    reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].extra[1] = token[1];
+                }
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
         }
     }
 
