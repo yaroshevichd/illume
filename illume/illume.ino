@@ -33,13 +33,12 @@ struct LedPin
 
 struct LedState
 {
-    typedef int Type;
+    typedef byte Type;
 
     static const Type On = 0;
     static const Type Off = 1;
     static const Type FadeIn = 2;
     static const Type FadeOut = 3;
-    static const Type Unused = 4;
 
 #ifdef _DEBUG
     static const char * toString(const LedState::Type value)
@@ -50,155 +49,174 @@ struct LedState
             case LedState::Off: return "off";
             case LedState::FadeIn: return "fade-in";
             case LedState::FadeOut: return "fade-out";
-            case LedState::Unused: return "unused";
         }
         return "undefined";
     }
 #endif
 };
 
+
+struct LedPwmFactors
+{
+    typedef byte Type;
+
+    static const Type Quarter = 0;
+    static const Type Half = 1;
+    static const Type Once = 2;
+    static const Type Twice = 3;
+
+#ifdef _DEBUG
+    static const char * toString(const LedPwmFactors::Type value)
+    {
+        switch(value)
+        {
+            case LedPwmFactors::Quarter: return "quarter";
+            case LedPwmFactors::Half: return "half";
+            case LedPwmFactors::Once: return "once";
+            case LedPwmFactors::Twice: return "twice";
+        }
+        return "undefined";
+    }
+#endif
+};
+
+
 struct LedStep
 {
-    LedState::Type m_state;
-    int m_ticks;
-    byte m_factor;
-    bool m_once;
-
-    LedStep(const LedState::Type state, const int ticks, const byte factor = 0, const bool once = false)
-        : m_state(state)
-        , m_ticks(ticks)
-        , m_factor(factor)
-        , m_once(once)
-    {}
-};
-
-struct LedStepOn : public LedStep
-{
-    LedStepOn(const int ticks, const bool once = false)
-        : LedStep(LedState::On, ticks, 0, once)
-    {}
-};
-
-struct LedStepOff : public LedStep
-{
-    LedStepOff(const int ticks, const bool once = false)
-        : LedStep(LedState::Off, ticks, 0, once)
-    {}
-};
-
-struct LedStepFadeIn : public LedStep
-{
-    LedStepFadeIn(const int ticks, const byte factor, const bool once = false)
-        : LedStep(LedState::FadeIn, ticks, factor, once)
-    {}
-};
-
-struct LedStepFadeOut : public LedStep
-{
-    LedStepFadeOut(const int ticks, const byte factor, const bool once = false)
-        : LedStep(LedState::FadeOut, ticks, factor, once)
-    {}
+    struct
+    {
+        byte led:3;
+        byte state:2;
+        byte factor:2;
+        byte once:1;
+    } info;
+    int duration;
+    
+    LedStep()
+      : duration(0)
+    {
+        info.state = LedState::Off;
+    }
+    
+    LedStep(const LedState::Type state, const int ticks, const LedPwmFactors::Type factor = LedPwmFactors::Once, const bool once = false)
+      : duration(ticks)
+    {
+        info.led = 1;
+        info.state = state;
+        info.factor = factor;
+        info.once = once;
+    }
 };
 
 struct LedRuntimeInfo
 {
-    int m_pwm;
-    LedState::Type m_state;
-    LedState::Type m_lastState;
-    int m_ticks;
-    int m_step;
+    float pwm;
+    LedState::Type state;
+    LedState::Type lastState;
+    int ticks;
+    int step;
 
     LedRuntimeInfo()
-        : m_pwm(0)
-        , m_state(LedState::On)
-        , m_lastState(LedState::On)
-        , m_ticks(0)
-        , m_step(0)
+        : pwm(0)
+        , state(LedState::On)
+        , lastState(LedState::On)
+        , ticks(0)
+        , step(0)
     {}
 };
 
 struct LedInfo
 {
-    LedPin::Type m_pin;
-    const LedStep* m_steps;
-    int m_stepsCount;
-    LedRuntimeInfo m_runtime;
+    LedPin::Type pin;
+    const LedStep* steps;
+    int stepsCount;
+    LedRuntimeInfo runtime;
 
     LedInfo(const int pin, const LedStep* steps, const int steps_count)
-        : m_pin(pin)
-        , m_steps(steps)
-        , m_stepsCount(steps_count)
+        : pin(pin)
+        , steps(steps)
+        , stepsCount(steps_count)
     {
-        m_runtime.m_state = m_steps[0].m_state;
-        m_runtime.m_ticks = m_steps[0].m_ticks;
+        runtime.state = steps[0].info.state;
+        runtime.ticks = steps[0].duration;
     }
 
     void apply(const LedStep* steps, const int steps_count)
     {
-        m_steps = steps;
-        m_stepsCount = steps_count;
-        m_runtime = LedRuntimeInfo();
-        m_runtime.m_state = m_steps[0].m_state;
-        m_runtime.m_ticks = m_steps[0].m_ticks;
+        steps = steps;
+        stepsCount = steps_count;
+        runtime = LedRuntimeInfo();
+        runtime.state = steps[0].info.state;
+        runtime.ticks = steps[0].duration;
     }
 
     inline int currentStep() const
     {
-        return m_runtime.m_step;
+        return runtime.step;
     }
 
     void nextStep()
     {
         do
         {
-            m_runtime.m_step = (currentStep() + 1) % m_stepsCount;
+            runtime.step = (currentStep() + 1) % stepsCount;
         }
-        while (m_steps[currentStep()].m_once);
-        m_runtime.m_lastState = m_runtime.m_state;
-        m_runtime.m_state = m_steps[currentStep()].m_state;
-        m_runtime.m_ticks = m_steps[currentStep()].m_ticks;
+        while (steps[currentStep()].info.once);
+        runtime.lastState = runtime.state;
+        runtime.state = steps[currentStep()].info.state;
+        runtime.ticks = steps[currentStep()].duration;
     }
 
     bool isNextStep()
     {
-        return --m_runtime.m_ticks < 0;
+        return --runtime.ticks < 0;
     }
 
     void process()
     {
-        switch (m_runtime.m_state)
+        switch (runtime.state)
         {
         case LedState::On:
-            if (m_runtime.m_lastState != LedState::On)
+            if (runtime.lastState != LedState::On)
             {
-                analogWrite(m_pin, m_runtime.m_pwm);
-                m_runtime.m_lastState = LedState::On;
+                analogWrite(pin, runtime.pwm);
+                runtime.lastState = LedState::On;
             }
             break;
         case LedState::Off:
-            if (m_runtime.m_lastState != LedState::Off)
+            if (runtime.lastState != LedState::Off)
             {
-                analogWrite(m_pin, 0);
-                m_runtime.m_lastState = LedState::Off;
+                analogWrite(pin, 0);
+                runtime.lastState = LedState::Off;
             }
             break;
         case LedState::FadeIn:
-            if (m_runtime.m_lastState != LedState::FadeIn)
+            if (runtime.lastState != LedState::FadeIn)
             {
-                m_runtime.m_lastState = LedState::FadeIn;
+                runtime.lastState = LedState::FadeIn;
             }
-            analogWrite(m_pin, m_runtime.m_pwm);
-            m_runtime.m_pwm += m_steps[m_runtime.m_step].m_factor;
+            analogWrite(pin, (int)runtime.pwm);
+            switch (steps[runtime.step].info.factor)
+            {
+            case LedPwmFactors::Quarter: runtime.pwm += 0.25; break;
+            case LedPwmFactors::Half: runtime.pwm += 0.5; break;
+            case LedPwmFactors::Once: runtime.pwm += 1.0; break;
+            case LedPwmFactors::Twice: runtime.pwm += 2.0; break;
+            }
             break;
         case LedState::FadeOut:
-            if (m_runtime.m_lastState != LedState::FadeOut)
+            if (runtime.lastState != LedState::FadeOut)
             {
-                m_runtime.m_lastState = LedState::FadeOut;
+                runtime.lastState = LedState::FadeOut;
             }
-            analogWrite(m_pin, m_runtime.m_pwm);
-            m_runtime.m_pwm -= m_steps[m_runtime.m_step].m_factor;
-            break;
-        case LedState::Unused:
+            analogWrite(pin, (int)runtime.pwm);
+            switch (steps[runtime.step].info.factor)
+            {
+            case LedPwmFactors::Quarter: runtime.pwm -= 0.25; break;
+            case LedPwmFactors::Half: runtime.pwm -= 0.5; break;
+            case LedPwmFactors::Once: runtime.pwm -= 1.0; break;
+            case LedPwmFactors::Twice: runtime.pwm -= 2.0; break;
+            }
             break;
         }
         if (isNextStep())
@@ -213,53 +231,53 @@ struct LedInfo
 #ifdef _DEBUG
     void debug() const
     {
-        Serial.print("Led '");
-        Serial.print(LedPin::toString(this->m_pin));
-        Serial.print("' transit from '");
-        Serial.print(LedState::toString(this->m_runtime.m_lastState));
-        Serial.print("' to '");
-        Serial.print(LedState::toString(this->m_runtime.m_state));
-        Serial.print("': ticks=");
-        Serial.print(this->m_runtime.m_ticks);
-        Serial.print(", pwm=");
-        Serial.println(this->m_runtime.m_pwm);
+        Serial.print(F("Led '"));
+        Serial.print(LedPin::toString(this->pin));
+        Serial.print(F("' transit from '"));
+        Serial.print(LedState::toString(this->runtime.lastState));
+        Serial.print(F("' to '"));
+        Serial.print(LedState::toString(this->runtime.state));
+        Serial.print(F("': ticks="));
+        Serial.print(this->runtime.ticks);
+        Serial.print(F(", pwm="));
+        Serial.println(this->runtime.pwm);
     }
 #endif
 };
 
 LedStep g_greenSteps[] = {
-    LedStepFadeIn(128, 1),
-    LedStepFadeOut(128, 1),
-    LedStepOff(128),
-    LedStepFadeIn(128, 1),
-    LedStepOn(640),
-    LedStepFadeOut(128, 1),
+    LedStep(LedState::FadeIn, 128),
+    LedStep(LedState::FadeOut, 128),
+    LedStep(LedState::Off, 128),
+    LedStep(LedState::FadeIn, 128),
+    LedStep(LedState::On, 640),
+    LedStep(LedState::FadeOut, 128),
 };
 
 LedStep g_redSteps[] = {
-    LedStepOff(128),
-    LedStepFadeIn(128, 1),
-    LedStepFadeOut(128, 1),
-    LedStepOff(128),
-    LedStepFadeIn(128, 1),
-    LedStepOn(384),
-    LedStepFadeOut(128, 1),
-    LedStepOff(128),
+    LedStep(LedState::Off, 128),
+    LedStep(LedState::FadeIn, 128),
+    LedStep(LedState::FadeOut, 128),
+    LedStep(LedState::Off, 128),
+    LedStep(LedState::FadeIn, 128),
+    LedStep(LedState::On, 384),
+    LedStep(LedState::FadeOut, 128),
+    LedStep(LedState::Off, 128),
 };
 
 LedStep g_blueSteps[] = {
-    LedStepOff(256),
-    LedStepFadeIn(128, 1),
-    LedStepFadeOut(128, 1),
-    LedStepOff(128),
-    LedStepFadeIn(128, 1),
-    LedStepOn(128),
-    LedStepFadeOut(128, 1),
-    LedStepOff(256),
+    LedStep(LedState::Off, 256),
+    LedStep(LedState::FadeIn, 128),
+    LedStep(LedState::FadeOut, 128),
+    LedStep(LedState::Off, 128),
+    LedStep(LedState::FadeIn, 128),
+    LedStep(LedState::FadeIn, 128),
+    LedStep(LedState::FadeOut, 128),
+    LedStep(LedState::Off, 256),
 };
 
 LedStep g_offSteps[] = {
-    LedStepOff(0)
+    LedStep(LedState::Off, 0)
 };
 
 LedInfo g_Leds[] = {
@@ -283,9 +301,16 @@ void setupLeds()
 {
     for (unsigned i = 0; i < LEN(g_Leds); ++i)
     {
-        pinMode(g_Leds[i].m_pin, OUTPUT);
-        digitalWrite(g_Leds[i].m_pin, LOW);
+        pinMode(g_Leds[i].pin, OUTPUT);
+        digitalWrite(g_Leds[i].pin, LOW);
     }
+}
+
+void loadLedsConfig()
+{
+    LedStep x[170];
+    Serial.println(sizeof(x));
+    Serial.println(freeMemory());
 }
 
 void readCommandFromSerial()
@@ -295,70 +320,35 @@ void readCommandFromSerial()
         if (g_CmdParser->parse(Serial) == ParserState_Done)
         {
             const Command* cmd = g_CmdParser->command();
-            Serial.print("type: ");
+            Serial.print(F("type: "));
             Serial.print(cmd->type);
-            Serial.print(", argc: ");
+            Serial.print(F(", argc: "));
             Serial.print(cmd->argc);
-            Serial.println(", params:");
+            Serial.println(F(", params:"));
 
             SaveCfgCommand::SaveCfgParam* params =
                 reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmd->argv);
             for (int i = 0; i < cmd->argc; ++i)
             {
-                Serial.print("  name: ");
+                Serial.print(F("  name: "));
                 Serial.print((char)params[i].name);
-                Serial.print(", effect: ");
+                Serial.print(F(", effect: "));
                 Serial.print((char)params[i].effect);
-                Serial.print(", ticks: ");
+                Serial.print(F(", ticks: "));
                 Serial.print(params[i].ticks);
-                Serial.print(", extra: ");
+                Serial.print(F(", extra: "));
                 Serial.print((int)params[i].extra[0]);
                 Serial.println((int)params[i].extra[1]);
             }
-
-//            SaveCfgCommand::SaveCfgParam* params =
-//                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmd->argv);
-//
-//            int counts[5] = {0, 0, 0, 0, 0};
-//            for (int i = 0; i < cmd->argc; ++i)
-//            {
-//                switch (params->name)
-//                {
-//                case LedName_Red: ++counts[0]; break;
-//                case LedName_Green: ++counts[1]; break;
-//                case LedName_Blue: ++counts[2]; break;
-//                case LedName_Yellow: ++counts[3]; break;
-//                case LedName_White: ++counts[4]; break;
-//                }
-//            }
-//
-//            LedStep* ledSteps[5] = {
-//                new LedStep[counts[0]],
-//                new LedStep[counts[1]],
-//                new LedStep[counts[2]],
-//                new LedStep[counts[3]],
-//                new LedStep[counts[4]]
-//            };
-//            counts = {0, 0, 0, 0, 0};
-//            for (int i = 0; i < cmd->argc; ++i)
-//            {
-//                switch (params->name)
-//                {
-//                case LedName_Red: ++counts[0]; break;
-//                case LedName_Green: ++counts[1]; break;
-//                case LedName_Blue: ++counts[2]; break;
-//                case LedName_Yellow: ++counts[3]; break;
-//                case LedName_White: ++counts[4]; break;
-//                }
-//            }
         }
-        Serial.print("*** ");
-        Serial.println(freeMemory());
+//        Serial.print(F("*** "));
+//        Serial.println(freeMemory());
     }
 }
 
 
 Task g_taskSetupLeds(0, 1, &setupLeds);
+Task g_taskLoadLedsConfig(0, 1, &loadLedsConfig);
 Task g_taskProcessLeds(15, -1, &processLeds);
 Task g_taskReadCommand(50, -1, &readCommandFromSerial);
 Scheduler g_taskManager;
@@ -367,8 +357,10 @@ Scheduler g_taskManager;
 void setup()
 {
     Serial.begin(9600);
+    Serial.println(freeMemory());
     g_taskManager.init();
     g_taskManager.addTask(g_taskSetupLeds);
+    g_taskManager.addTask(g_taskLoadLedsConfig);
     g_taskManager.addTask(g_taskProcessLeds);
     g_taskManager.addTask(g_taskReadCommand);
     g_taskManager.enableAll();
@@ -377,4 +369,5 @@ void setup()
 void loop()
 {
     g_taskManager.execute();
+//    Serial.println(freeMemory());
 }
