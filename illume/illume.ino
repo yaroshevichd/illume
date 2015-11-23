@@ -64,7 +64,6 @@ struct LedStep
     byte m_factor;
     bool m_once;
 
-protected:
     LedStep(const LedState::Type state, const int ticks, const byte factor = 0, const bool once = false)
         : m_state(state)
         , m_ticks(ticks)
@@ -121,15 +120,24 @@ struct LedRuntimeInfo
 struct LedInfo
 {
     LedPin::Type m_pin;
-    LedStep* m_steps;
+    const LedStep* m_steps;
     int m_stepsCount;
     LedRuntimeInfo m_runtime;
 
-    LedInfo(const int pin, struct LedStep* steps, const int steps_count)
+    LedInfo(const int pin, const LedStep* steps, const int steps_count)
         : m_pin(pin)
         , m_steps(steps)
         , m_stepsCount(steps_count)
     {
+        m_runtime.m_state = m_steps[0].m_state;
+        m_runtime.m_ticks = m_steps[0].m_ticks;
+    }
+
+    void apply(const LedStep* steps, const int steps_count)
+    {
+        m_steps = steps;
+        m_stepsCount = steps_count;
+        m_runtime = LedRuntimeInfo();
         m_runtime.m_state = m_steps[0].m_state;
         m_runtime.m_ticks = m_steps[0].m_ticks;
     }
@@ -255,8 +263,8 @@ LedStep g_offSteps[] = {
 };
 
 LedInfo g_Leds[] = {
-    LedInfo(LedPin::Green, g_greenSteps, LEN(g_greenSteps)),
     LedInfo(LedPin::Red, g_redSteps, LEN(g_redSteps)),
+    LedInfo(LedPin::Green, g_greenSteps, LEN(g_greenSteps)),
     LedInfo(LedPin::Blue, g_blueSteps, LEN(g_blueSteps)),
     LedInfo(LedPin::Orange, g_offSteps, LEN(g_offSteps)),
     LedInfo(LedPin::White, g_offSteps, LEN(g_offSteps))
@@ -292,10 +300,11 @@ void readCommandFromSerial()
             Serial.print(", argc: ");
             Serial.print(cmd->argc);
             Serial.println(", params:");
+
+            SaveCfgCommand::SaveCfgParam* params =
+                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmd->argv);
             for (int i = 0; i < cmd->argc; ++i)
             {
-                SaveCfgCommand::SaveCfgParam* params =
-                    reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmd->argv);
                 Serial.print("  name: ");
                 Serial.print((char)params[i].name);
                 Serial.print(", effect: ");
@@ -306,6 +315,42 @@ void readCommandFromSerial()
                 Serial.print((int)params[i].extra[0]);
                 Serial.println((int)params[i].extra[1]);
             }
+
+//            SaveCfgCommand::SaveCfgParam* params =
+//                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmd->argv);
+//
+//            int counts[5] = {0, 0, 0, 0, 0};
+//            for (int i = 0; i < cmd->argc; ++i)
+//            {
+//                switch (params->name)
+//                {
+//                case LedName_Red: ++counts[0]; break;
+//                case LedName_Green: ++counts[1]; break;
+//                case LedName_Blue: ++counts[2]; break;
+//                case LedName_Yellow: ++counts[3]; break;
+//                case LedName_White: ++counts[4]; break;
+//                }
+//            }
+//
+//            LedStep* ledSteps[5] = {
+//                new LedStep[counts[0]],
+//                new LedStep[counts[1]],
+//                new LedStep[counts[2]],
+//                new LedStep[counts[3]],
+//                new LedStep[counts[4]]
+//            };
+//            counts = {0, 0, 0, 0, 0};
+//            for (int i = 0; i < cmd->argc; ++i)
+//            {
+//                switch (params->name)
+//                {
+//                case LedName_Red: ++counts[0]; break;
+//                case LedName_Green: ++counts[1]; break;
+//                case LedName_Blue: ++counts[2]; break;
+//                case LedName_Yellow: ++counts[3]; break;
+//                case LedName_White: ++counts[4]; break;
+//                }
+//            }
         }
         Serial.print("*** ");
         Serial.println(freeMemory());

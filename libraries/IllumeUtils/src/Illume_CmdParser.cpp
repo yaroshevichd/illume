@@ -141,6 +141,10 @@ public:
                     switchState(ParserState_ParseCommandValue);
                     resetIndexes();
                     break;
+                case 0:
+                case -1:
+                    moreDataRequired = true;
+                    break;
                 default:
                     break;
                 }
@@ -208,13 +212,12 @@ public:
                     resetToken();
                     break;
                 case TOKEN_COMMAND_ARGS_DELIMITER:
-                    --argsLeft;
-                    if (argsLeft >= 0)
+                    if (argsLeft > 0)
                     {
-                        fieldIndex = 0;
                         parseCommandArg();
-                        ++fieldIndex;
+                        fieldIndex = 0;
                     }
+                    --argsLeft;
                     resetToken();
                     skip(input);
                     break;
@@ -235,11 +238,6 @@ public:
                 }
                 break;
             default:
-                Serial.println(token);
-                if (this_char >= 0)
-                {
-                    skip(input);
-                }
                 break;
             }
         };

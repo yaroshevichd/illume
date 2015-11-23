@@ -3,7 +3,50 @@
 #include <IllumeUtils.h>
 
 
-#if (1) // region LoadCfgTests
+class StringStream : public Stream
+{
+private:
+    const String &string;
+    unsigned position;
+
+public:
+    StringStream(const String &s)
+        : string(s)
+        , position(0)
+    {
+    }
+
+    virtual ~StringStream()
+    {}
+
+    // Stream methods
+    virtual int available()
+    {
+        return string.length() - position;
+    }
+
+    virtual int read()
+    {
+        return position < string.length() ? string[position++] : -1;
+    }
+
+    virtual int peek()
+    {
+        return position < string.length() ? string[position] : -1;
+    }
+
+    virtual void flush()
+    {};
+
+    // Print methods
+    virtual size_t write(uint8_t /*c*/)
+    {
+        return 0;
+    };
+};
+
+
+#if (1) // LoadCfgTests
 
 struct LoadCfgIsParsedInTwoConsecutiveCalls : TestOnce
 {
@@ -32,25 +75,74 @@ struct LoadCfgIsParsedInTwoConsecutiveCalls : TestOnce
     }
 } load_cfg_is_parsed_in_two_consecutive_calls_instance;
 
-#endif // endregion LoadCfgTests
+#endif // end LoadCfgTests
 
 
-struct SaveCfgTestPositiveTestOnce : TestOnce
+#if (1) // SaveCfgTests
+
+static const byte SAVE_CFG_COMBINATIONS = 6;
+
+struct SaveCfgTestPositiveTests : Test
 {
-    String m_testInput;
-    SaveCfgCommand::SaveCfgParam m_expectedParam;
+    byte m_thisIndex;
+    byte m_subTestsPass;
+    String m_testInput[SAVE_CFG_COMBINATIONS];
+    SaveCfgCommand::SaveCfgParam m_expectedParam[SAVE_CFG_COMBINATIONS];
 
-    SaveCfgTestPositiveTestOnce(
-            const __FlashStringHelper * test_name
-            , const __FlashStringHelper * test_data)
-        : TestOnce(test_name)
-        , m_testInput(test_data)
-    {}
-
-    void once()
+    SaveCfgTestPositiveTests(const __FlashStringHelper * test_name)
+        : Test(test_name)
+        , m_thisIndex(0)
+        , m_subTestsPass(0)
     {
+        for (byte i = 0; i < SAVE_CFG_COMBINATIONS; ++i)
+        {
+            switch (i)
+            {
+            case 0:
+                m_expectedParam[i].effect = LedEffect_On;
+                m_expectedParam[i].ticks = 11;
+                break;
+            case 1:
+                m_expectedParam[i].effect = LedEffect_Off;
+                m_expectedParam[i].ticks = 22;
+                break;
+            case 2:
+                m_expectedParam[i].effect = LedEffect_FadeIn;
+                m_expectedParam[i].extra[0] = LedFadeType_Linear;
+                m_expectedParam[i].ticks = 33;
+                break;
+            case 3:
+                m_expectedParam[i].effect = LedEffect_FadeIn;
+                m_expectedParam[i].extra[0] = LedFadeType_Exponential;
+                m_expectedParam[i].ticks = 44;
+                break;
+            case 4:
+                m_expectedParam[i].effect = LedEffect_FadeOut;
+                m_expectedParam[i].extra[0] = LedFadeType_Linear;
+                m_expectedParam[i].ticks = 55;
+                break;
+            case 5:
+                m_expectedParam[i].effect = LedEffect_FadeOut;
+                m_expectedParam[i].extra[0] = LedFadeType_Exponential;
+                m_expectedParam[i].ticks = 66;
+                break;
+            }
+        }
+    }
+
+    void loop()
+    {
+        if (m_thisIndex >= SAVE_CFG_COMBINATIONS)
+        {
+            m_subTestsPass == SAVE_CFG_COMBINATIONS
+                ? pass()
+                : fail();
+            return;
+        }
+        ++m_thisIndex;
+
         // INIT
-        StringStream test_stream(m_testInput);
+        StringStream test_stream(m_testInput[m_thisIndex-1]);
 
         // ACT
         assertEqual(g_CmdParser->parse(test_stream), ParserState_Done);
@@ -63,553 +155,202 @@ struct SaveCfgTestPositiveTestOnce : TestOnce
         assertTrue(actual_result->argv != NULL);
         const SaveCfgCommand* save_cfg_cmd =
             reinterpret_cast<const SaveCfgCommand*>(actual_result);
-        assertEqual(save_cfg_cmd->params()->name, m_expectedParam.name);
-        assertEqual(save_cfg_cmd->params()->effect, m_expectedParam.effect);
-        assertEqual(save_cfg_cmd->params()->ticks, m_expectedParam.ticks);
-        assertEqual(save_cfg_cmd->params()->extra[0], m_expectedParam.extra[0]);
-        assertEqual(save_cfg_cmd->params()->extra[1], m_expectedParam.extra[1]);
+        assertEqual(save_cfg_cmd->params()->name, m_expectedParam[m_thisIndex-1].name);
+        assertEqual(save_cfg_cmd->params()->effect, m_expectedParam[m_thisIndex-1].effect);
+        assertEqual(save_cfg_cmd->params()->ticks, m_expectedParam[m_thisIndex-1].ticks);
+        assertEqual(save_cfg_cmd->params()->extra[0], m_expectedParam[m_thisIndex-1].extra[0]);
+        assertEqual(save_cfg_cmd->params()->extra[1], m_expectedParam[m_thisIndex-1].extra[1]);
+
+        ++m_subTestsPass;
     }
 };
 
-#if (1) // begin GreenLedPositiveTests
+#if (1) // begin SaveCfgTestParseIfGreenLedOccured
 
-struct SaveCfgTestGreenPositiveTestOnce : SaveCfgTestPositiveTestOnce
+struct SaveCfgTestParseIfGreenLedOccured : SaveCfgTestPositiveTests
 {
-    SaveCfgTestGreenPositiveTestOnce(
-            const __FlashStringHelper * test_name
-            , const __FlashStringHelper * test_data)
-        : SaveCfgTestPositiveTestOnce(test_name, test_data)
-    {}
-
-    void once()
+    SaveCfgTestParseIfGreenLedOccured()
+        : SaveCfgTestPositiveTests(F("save_cfg_parsed_if_green_led_occured"))
     {
-        m_expectedParam.name = LedName_Green;
-        SaveCfgTestPositiveTestOnce::once();
+        for (byte i = 0; i < SAVE_CFG_COMBINATIONS; ++i)
+        {
+            m_expectedParam[i].name = LedName_Green;
+            switch (i)
+            {
+            case 0:
+                m_testInput[i] = String(F("$save-cfg,1,g:x:11#"));
+                break;
+            case 1:
+                m_testInput[i] = String(F("$save-cfg,1,g:o:22#"));
+                break;
+            case 2:
+                m_testInput[i] = String(F("$save-cfg,1,g:/:33:-#"));
+                break;
+            case 3:
+                m_testInput[i] = String(F("$save-cfg,1,g:/:44:e#"));
+                break;
+            case 4:
+                m_testInput[i] = String(F("$save-cfg,1,g:\\:55:-#"));
+                break;
+            case 5:
+                m_testInput[i] = String(F("$save-cfg,1,g:\\:66:e#"));
+                break;
+            }
+        }
     }
-};
+} save_cfg_parsed_if_green_led_occured_instance;
 
-struct save_cfg_parsed_if_green_led_on : SaveCfgTestGreenPositiveTestOnce
+#endif // end SaveCfgTestParseIfGreenLedOccured
+
+#if (1) // begin SaveCfgTestParseIfRedLedOccured
+
+struct SaveCfgTestParseIfRedLedOccured : SaveCfgTestPositiveTests
 {
-    save_cfg_parsed_if_green_led_on()
-        : SaveCfgTestGreenPositiveTestOnce(F("save_cfg_parsed_if_green_led_on"), F("$save-cfg,1,g:x:10#"))
-    {}
-
-    void once()
+    SaveCfgTestParseIfRedLedOccured()
+        : SaveCfgTestPositiveTests(F("save_cfg_parsed_if_red_led_occured"))
     {
-        m_expectedParam.ticks = 10;
-        m_expectedParam.effect = LedEffect_On;
-        SaveCfgTestGreenPositiveTestOnce::once();
+        for (byte i = 0; i < SAVE_CFG_COMBINATIONS; ++i)
+        {
+            m_expectedParam[i].name = LedName_Red;
+            switch (i)
+            {
+            case 0:
+                m_testInput[i] = String(F("$save-cfg,1,r:x:11#"));
+                break;
+            case 1:
+                m_testInput[i] = String(F("$save-cfg,1,r:o:22#"));
+                break;
+            case 2:
+                m_testInput[i] = String(F("$save-cfg,1,r:/:33:-#"));
+                break;
+            case 3:
+                m_testInput[i] = String(F("$save-cfg,1,r:/:44:e#"));
+                break;
+            case 4:
+                m_testInput[i] = String(F("$save-cfg,1,r:\\:55:-#"));
+                break;
+            case 5:
+                m_testInput[i] = String(F("$save-cfg,1,r:\\:66:e#"));
+                break;
+            }
+        }
     }
-} save_cfg_parsed_if_green_led_on_instance;
+} save_cfg_parsed_if_red_led_occured_instance;
 
-struct save_cfg_parsed_if_green_led_off : SaveCfgTestGreenPositiveTestOnce
+#endif // end SaveCfgTestParseIfRedLedOccured
+
+#if (1) // begin SaveCfgTestParseIfBlueLedOccured
+
+struct SaveCfgTestParseIfBlueLedOccured : SaveCfgTestPositiveTests
 {
-    save_cfg_parsed_if_green_led_off()
-        : SaveCfgTestGreenPositiveTestOnce(F("save_cfg_parsed_if_green_led_off"), F("$save-cfg,1,g:o:11#"))
-    {}
-
-    void once()
+    SaveCfgTestParseIfBlueLedOccured()
+        : SaveCfgTestPositiveTests(F("save_cfg_parsed_if_blue_led_occured"))
     {
-        m_expectedParam.ticks = 11;
-        m_expectedParam.effect = LedEffect_Off;
-        SaveCfgTestGreenPositiveTestOnce::once();
+        for (byte i = 0; i < SAVE_CFG_COMBINATIONS; ++i)
+        {
+            m_expectedParam[i].name = LedName_Blue;
+            switch (i)
+            {
+            case 0:
+                m_testInput[i] = String(F("$save-cfg,1,b:x:11#"));
+                break;
+            case 1:
+                m_testInput[i] = String(F("$save-cfg,1,b:o:22#"));
+                break;
+            case 2:
+                m_testInput[i] = String(F("$save-cfg,1,b:/:33:-#"));
+                break;
+            case 3:
+                m_testInput[i] = String(F("$save-cfg,1,b:/:44:e#"));
+                break;
+            case 4:
+                m_testInput[i] = String(F("$save-cfg,1,b:\\:55:-#"));
+                break;
+            case 5:
+                m_testInput[i] = String(F("$save-cfg,1,b:\\:66:e#"));
+                break;
+            }
+        }
     }
-} save_cfg_parsed_if_green_led_off_instance;
+} save_cfg_parsed_if_blue_led_occured_instance;
 
-struct save_cfg_parsed_if_green_led_fade_in_linear : SaveCfgTestGreenPositiveTestOnce
+#endif // end SaveCfgTestParseIfBlueLedOccured
+
+#if (1) // begin SaveCfgTestParseIfYellowLedOccured
+
+struct SaveCfgTestParseIfYellowLedOccured : SaveCfgTestPositiveTests
 {
-    save_cfg_parsed_if_green_led_fade_in_linear()
-        : SaveCfgTestGreenPositiveTestOnce(F("save_cfg_parsed_if_green_led_fade_in_linear"), F("$save-cfg,1,g:/:12:-#"))
-    {}
-
-    void once()
+    SaveCfgTestParseIfYellowLedOccured()
+        : SaveCfgTestPositiveTests(F("save_cfg_parsed_if_yellow_led_occured"))
     {
-        m_expectedParam.ticks = 12;
-        m_expectedParam.effect = LedEffect_FadeIn;
-        m_expectedParam.extra[0] = LedFadeType_Linear;
-        SaveCfgTestGreenPositiveTestOnce::once();
+        for (byte i = 0; i < SAVE_CFG_COMBINATIONS; ++i)
+        {
+            m_expectedParam[i].name = LedName_Yellow;
+            switch (i)
+            {
+            case 0:
+                m_testInput[i] = String(F("$save-cfg,1,y:x:11#"));
+                break;
+            case 1:
+                m_testInput[i] = String(F("$save-cfg,1,y:o:22#"));
+                break;
+            case 2:
+                m_testInput[i] = String(F("$save-cfg,1,y:/:33:-#"));
+                break;
+            case 3:
+                m_testInput[i] = String(F("$save-cfg,1,y:/:44:e#"));
+                break;
+            case 4:
+                m_testInput[i] = String(F("$save-cfg,1,y:\\:55:-#"));
+                break;
+            case 5:
+                m_testInput[i] = String(F("$save-cfg,1,y:\\:66:e#"));
+                break;
+            }
+        }
     }
-} save_cfg_parsed_if_green_led_fade_in_linear_instance;
+} save_cfg_parsed_if_yellow_led_occured_instance;
 
-struct save_cfg_parsed_if_green_led_fade_in_exponential : SaveCfgTestGreenPositiveTestOnce
+#endif // end SaveCfgTestParseIfYellowLedOccured
+
+#if (1) // begin SaveCfgTestParseIfWhiteLedOccured
+
+struct SaveCfgTestParseIfWhiteLedOccured : SaveCfgTestPositiveTests
 {
-    save_cfg_parsed_if_green_led_fade_in_exponential()
-        : SaveCfgTestGreenPositiveTestOnce(F("save_cfg_parsed_if_green_led_fade_in_exponential"), F("$save-cfg,1,g:/:13:e#"))
-    {}
-
-    void once()
+    SaveCfgTestParseIfWhiteLedOccured()
+        : SaveCfgTestPositiveTests(F("save_cfg_parsed_if_white_led_occured"))
     {
-        m_expectedParam.ticks = 13;
-        m_expectedParam.effect = LedEffect_FadeIn;
-        m_expectedParam.extra[0] = LedFadeType_Exponential;
-        SaveCfgTestGreenPositiveTestOnce::once();
+        for (byte i = 0; i < SAVE_CFG_COMBINATIONS; ++i)
+        {
+            m_expectedParam[i].name = LedName_White;
+            switch (i)
+            {
+            case 0:
+                m_testInput[i] = String(F("$save-cfg,1,w:x:11#"));
+                break;
+            case 1:
+                m_testInput[i] = String(F("$save-cfg,1,w:o:22#"));
+                break;
+            case 2:
+                m_testInput[i] = String(F("$save-cfg,1,w:/:33:-#"));
+                break;
+            case 3:
+                m_testInput[i] = String(F("$save-cfg,1,w:/:44:e#"));
+                break;
+            case 4:
+                m_testInput[i] = String(F("$save-cfg,1,w:\\:55:-#"));
+                break;
+            case 5:
+                m_testInput[i] = String(F("$save-cfg,1,w:\\:66:e#"));
+                break;
+            }
+        }
     }
-} save_cfg_parsed_if_green_led_fade_in_exponential_instance;
+} save_cfg_parsed_if_white_led_occured_instance;
 
-struct save_cfg_parsed_if_green_led_fade_out_linear : SaveCfgTestGreenPositiveTestOnce
-{
-    save_cfg_parsed_if_green_led_fade_out_linear()
-        : SaveCfgTestGreenPositiveTestOnce(F("save_cfg_parsed_if_green_led_fade_out_linear"), F("$save-cfg,1,g:\\:12:-#"))
-    {}
+#endif // end SaveCfgTestParseIfWhiteLedOccured
 
-    void once()
-    {
-        m_expectedParam.ticks = 12;
-        m_expectedParam.effect = LedEffect_FadeOut;
-        m_expectedParam.extra[0] = LedFadeType_Linear;
-        SaveCfgTestGreenPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_green_led_fade_out_linear_instance;
-
-struct save_cfg_parsed_if_green_led_fade_out_exponential : SaveCfgTestGreenPositiveTestOnce
-{
-    save_cfg_parsed_if_green_led_fade_out_exponential()
-        : SaveCfgTestGreenPositiveTestOnce(F("save_cfg_parsed_if_green_led_fade_out_exponential"), F("$save-cfg,1,g:\\:13:e#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 13;
-        m_expectedParam.effect = LedEffect_FadeOut;
-        m_expectedParam.extra[0] = LedFadeType_Exponential;
-        SaveCfgTestGreenPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_green_led_fade_out_exponential_instance;
-
-#endif // end GreenLedPositiveTests
-
-
-#if (1) // begin RedLedPositiveTests
-
-struct SaveCfgTestRedPositiveTestOnce : SaveCfgTestPositiveTestOnce
-{
-    SaveCfgTestRedPositiveTestOnce(
-            const __FlashStringHelper * test_name,
-            const __FlashStringHelper * test_data)
-        : SaveCfgTestPositiveTestOnce(test_name, test_data)
-    {}
-
-    void once()
-    {
-        m_expectedParam.name = LedName_Red;
-        SaveCfgTestPositiveTestOnce::once();
-    }
-};
-
-struct save_cfg_parsed_if_red_led_on : SaveCfgTestRedPositiveTestOnce
-{
-    save_cfg_parsed_if_red_led_on()
-        : SaveCfgTestRedPositiveTestOnce(F("save_cfg_parsed_if_red_led_on"), F("$save-cfg,1,r:x:10#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 10;
-        m_expectedParam.effect = LedEffect_On;
-        SaveCfgTestRedPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_red_led_on_instance;
-
-struct save_cfg_parsed_if_red_led_off : SaveCfgTestRedPositiveTestOnce
-{
-    save_cfg_parsed_if_red_led_off()
-        : SaveCfgTestRedPositiveTestOnce(F("save_cfg_parsed_if_red_led_off"), F("$save-cfg,1,r:o:11#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 11;
-        m_expectedParam.effect = LedEffect_Off;
-        SaveCfgTestRedPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_red_led_off_instance;
-
-struct save_cfg_parsed_if_red_led_fade_in_linear : SaveCfgTestRedPositiveTestOnce
-{
-    save_cfg_parsed_if_red_led_fade_in_linear()
-        : SaveCfgTestRedPositiveTestOnce(F("save_cfg_parsed_if_red_led_fade_in_linear"), F("$save-cfg,1,r:/:12:-#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 12;
-        m_expectedParam.effect = LedEffect_FadeIn;
-        m_expectedParam.extra[0] = LedFadeType_Linear;
-        SaveCfgTestRedPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_red_led_fade_in_linear_instance;
-
-struct save_cfg_parsed_if_red_led_fade_in_exponential : SaveCfgTestRedPositiveTestOnce
-{
-    save_cfg_parsed_if_red_led_fade_in_exponential()
-        : SaveCfgTestRedPositiveTestOnce(F("save_cfg_parsed_if_red_led_fade_in_exponential"), F("$save-cfg,1,r:/:13:e#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 13;
-        m_expectedParam.effect = LedEffect_FadeIn;
-        m_expectedParam.extra[0] = LedFadeType_Exponential;
-        SaveCfgTestRedPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_red_led_fade_in_exponential_instance;
-
-struct save_cfg_parsed_if_red_led_fade_out_linear : SaveCfgTestRedPositiveTestOnce
-{
-    save_cfg_parsed_if_red_led_fade_out_linear()
-        : SaveCfgTestRedPositiveTestOnce(F("save_cfg_parsed_if_red_led_fade_out_linear"), F("$save-cfg,1,r:\\:12:-#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 12;
-        m_expectedParam.effect = LedEffect_FadeOut;
-        m_expectedParam.extra[0] = LedFadeType_Linear;
-        SaveCfgTestRedPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_red_led_fade_out_linear_instance;
-
-struct save_cfg_parsed_if_red_led_fade_out_exponential : SaveCfgTestRedPositiveTestOnce
-{
-    save_cfg_parsed_if_red_led_fade_out_exponential()
-        : SaveCfgTestRedPositiveTestOnce(F("save_cfg_parsed_if_red_led_fade_out_exponential"), F("$save-cfg,1,r:\\:13:e#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 13;
-        m_expectedParam.effect = LedEffect_FadeOut;
-        m_expectedParam.extra[0] = LedFadeType_Exponential;
-        SaveCfgTestRedPositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_red_led_fade_out_exponential_instance;
-
-#endif // end RedLedPositiveTests
-
-
-#if (1) // begin BlueLedPositiveTests
-
-struct SaveCfgTestBluePositiveTestOnce : SaveCfgTestPositiveTestOnce
-{
-    SaveCfgTestBluePositiveTestOnce(
-            const __FlashStringHelper * test_name,
-            const __FlashStringHelper * test_data)
-        : SaveCfgTestPositiveTestOnce(test_name, test_data)
-    {}
-
-    void once()
-    {
-        m_expectedParam.name = LedName_Blue;
-        SaveCfgTestPositiveTestOnce::once();
-    }
-};
-
-struct save_cfg_parsed_if_blue_led_on : SaveCfgTestBluePositiveTestOnce
-{
-    save_cfg_parsed_if_blue_led_on()
-        : SaveCfgTestBluePositiveTestOnce(F("save_cfg_parsed_if_blue_led_on"), F("$save-cfg,1,b:x:10#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 10;
-        m_expectedParam.effect = LedEffect_On;
-        SaveCfgTestBluePositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_blue_led_on_instance;
-
-struct save_cfg_parsed_if_blue_led_off : SaveCfgTestBluePositiveTestOnce
-{
-    save_cfg_parsed_if_blue_led_off()
-        : SaveCfgTestBluePositiveTestOnce(F("save_cfg_parsed_if_blue_led_off"), F("$save-cfg,1,b:o:11#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 11;
-        m_expectedParam.effect = LedEffect_Off;
-        SaveCfgTestBluePositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_blue_led_off_instance;
-
-struct save_cfg_parsed_if_blue_led_fade_in_linear : SaveCfgTestBluePositiveTestOnce
-{
-    save_cfg_parsed_if_blue_led_fade_in_linear()
-        : SaveCfgTestBluePositiveTestOnce(F("save_cfg_parsed_if_blue_led_fade_in_linear"), F("$save-cfg,1,b:/:12:-#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 12;
-        m_expectedParam.effect = LedEffect_FadeIn;
-        m_expectedParam.extra[0] = LedFadeType_Linear;
-        SaveCfgTestBluePositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_blue_led_fade_in_linear_instance;
-
-struct save_cfg_parsed_if_blue_led_fade_in_exponential : SaveCfgTestBluePositiveTestOnce
-{
-    save_cfg_parsed_if_blue_led_fade_in_exponential()
-        : SaveCfgTestBluePositiveTestOnce(F("save_cfg_parsed_if_blue_led_fade_in_exponential"), F("$save-cfg,1,b:/:13:e#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 13;
-        m_expectedParam.effect = LedEffect_FadeIn;
-        m_expectedParam.extra[0] = LedFadeType_Exponential;
-        SaveCfgTestBluePositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_blue_led_fade_in_exponential_instance;
-
-struct save_cfg_parsed_if_blue_led_fade_out_linear : SaveCfgTestBluePositiveTestOnce
-{
-    save_cfg_parsed_if_blue_led_fade_out_linear()
-        : SaveCfgTestBluePositiveTestOnce(F("save_cfg_parsed_if_blue_led_fade_out_linear"), F("$save-cfg,1,b:\\:12:-#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 12;
-        m_expectedParam.effect = LedEffect_FadeOut;
-        m_expectedParam.extra[0] = LedFadeType_Linear;
-        SaveCfgTestBluePositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_blue_led_fade_out_linear_instance;
-
-struct save_cfg_parsed_if_blue_led_fade_out_exponential : SaveCfgTestBluePositiveTestOnce
-{
-    save_cfg_parsed_if_blue_led_fade_out_exponential()
-        : SaveCfgTestBluePositiveTestOnce(F("save_cfg_parsed_if_blue_led_fade_out_exponential"), F("$save-cfg,1,b:\\:13:e#"))
-    {}
-
-    void once()
-    {
-        m_expectedParam.ticks = 13;
-        m_expectedParam.effect = LedEffect_FadeOut;
-        m_expectedParam.extra[0] = LedFadeType_Exponential;
-        SaveCfgTestBluePositiveTestOnce::once();
-    }
-} save_cfg_parsed_if_blue_led_fade_out_exponential_instance;
-
-#endif // end BlueLedPositiveTests
-
-
-//#if (1) // begin YellowLedPositiveTests
-//
-//struct SaveCfgTestYellowPositiveTestOnce : SaveCfgTestPositiveTestOnce
-//{
-//    SaveCfgTestYellowPositiveTestOnce(
-//            const __FlashStringHelper * test_name,
-//            const __FlashStringHelper * test_data)
-//        : SaveCfgTestPositiveTestOnce(test_name, test_data)
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.name = LedName_Yellow;
-//        SaveCfgTestPositiveTestOnce::once();
-//    }
-//};
-//
-//struct save_cfg_parsed_if_yellow_led_on : SaveCfgTestYellowPositiveTestOnce
-//{
-//    save_cfg_parsed_if_yellow_led_on()
-//        : SaveCfgTestYellowPositiveTestOnce(F("save_cfg_parsed_if_yellow_led_on"), F("$save-cfg,1,y:x:10#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 10;
-//        m_expectedParam.effect = LedEffect_On;
-//        SaveCfgTestYellowPositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_yellow_led_on_instance;
-//
-//struct save_cfg_parsed_if_yellow_led_off : SaveCfgTestYellowPositiveTestOnce
-//{
-//    save_cfg_parsed_if_yellow_led_off()
-//        : SaveCfgTestYellowPositiveTestOnce(F("save_cfg_parsed_if_yellow_led_off"), F("$save-cfg,1,y:o:11#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 11;
-//        m_expectedParam.effect = LedEffect_Off;
-//        SaveCfgTestYellowPositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_yellow_led_off_instance;
-//
-//struct save_cfg_parsed_if_yellow_led_fade_in_linear : SaveCfgTestYellowPositiveTestOnce
-//{
-//    save_cfg_parsed_if_yellow_led_fade_in_linear()
-//        : SaveCfgTestYellowPositiveTestOnce(F("save_cfg_parsed_if_yellow_led_fade_in_linear"), F("$save-cfg,1,y:/:12:-#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 12;
-//        m_expectedParam.effect = LedEffect_FadeIn;
-//        m_expectedParam.extra[0] = LedFadeType_Linear;
-//        SaveCfgTestYellowPositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_yellow_led_fade_in_linear_instance;
-//
-//struct save_cfg_parsed_if_yellow_led_fade_in_exponential : SaveCfgTestYellowPositiveTestOnce
-//{
-//    save_cfg_parsed_if_yellow_led_fade_in_exponential()
-//        : SaveCfgTestYellowPositiveTestOnce(F("save_cfg_parsed_if_yellow_led_fade_in_exponential"), F("$save-cfg,1,y:/:13:e#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 13;
-//        m_expectedParam.effect = LedEffect_FadeIn;
-//        m_expectedParam.extra[0] = LedFadeType_Exponential;
-//        SaveCfgTestYellowPositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_yellow_led_fade_in_exponential_instance;
-//
-//struct save_cfg_parsed_if_yellow_led_fade_out_linear : SaveCfgTestYellowPositiveTestOnce
-//{
-//    save_cfg_parsed_if_yellow_led_fade_out_linear()
-//        : SaveCfgTestYellowPositiveTestOnce(F("save_cfg_parsed_if_yellow_led_fade_out_linear"), F("$save-cfg,1,y:\\:12:-#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 12;
-//        m_expectedParam.effect = LedEffect_FadeOut;
-//        m_expectedParam.extra[0] = LedFadeType_Linear;
-//        SaveCfgTestYellowPositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_yellow_led_fade_out_linear_instance;
-//
-//struct save_cfg_parsed_if_yellow_led_fade_out_exponential : SaveCfgTestYellowPositiveTestOnce
-//{
-//    save_cfg_parsed_if_yellow_led_fade_out_exponential()
-//        : SaveCfgTestYellowPositiveTestOnce(F("save_cfg_parsed_if_yellow_led_fade_out_exponential"), F("$save-cfg,1,y:\\:13:e#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 13;
-//        m_expectedParam.effect = LedEffect_FadeOut;
-//        m_expectedParam.extra[0] = LedFadeType_Exponential;
-//        SaveCfgTestYellowPositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_yellow_led_fade_out_exponential_instance;
-//
-//#endif // end YellowLedPositiveTests
-
-
-//#if (1) // begin WhiteLedPositiveTests
-//
-//struct SaveCfgTestWhitePositiveTestOnce : SaveCfgTestPositiveTestOnce
-//{
-//    SaveCfgTestWhitePositiveTestOnce(
-//            const __FlashStringHelper * test_name,
-//            const __FlashStringHelper * test_data)
-//        : SaveCfgTestPositiveTestOnce(test_name, test_data)
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.name = LedName_White;
-//        SaveCfgTestPositiveTestOnce::once();
-//    }
-//};
-//
-//struct save_cfg_parsed_if_white_led_on : SaveCfgTestWhitePositiveTestOnce
-//{
-//    save_cfg_parsed_if_white_led_on()
-//        : SaveCfgTestWhitePositiveTestOnce(F("save_cfg_parsed_if_white_led_on"), F("$save-cfg,1,w:x:10#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 10;
-//        m_expectedParam.effect = LedEffect_On;
-//        SaveCfgTestWhitePositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_white_led_on_instance;
-//
-//struct save_cfg_parsed_if_white_led_off : SaveCfgTestWhitePositiveTestOnce
-//{
-//    save_cfg_parsed_if_white_led_off()
-//        : SaveCfgTestWhitePositiveTestOnce(F("save_cfg_parsed_if_white_led_off"), F("$save-cfg,1,w:o:11#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 11;
-//        m_expectedParam.effect = LedEffect_Off;
-//        SaveCfgTestWhitePositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_white_led_off_instance;
-//
-//struct save_cfg_parsed_if_white_led_fade_in_linear : SaveCfgTestWhitePositiveTestOnce
-//{
-//    save_cfg_parsed_if_white_led_fade_in_linear()
-//        : SaveCfgTestWhitePositiveTestOnce(F("save_cfg_parsed_if_white_led_fade_in_linear"), F("$save-cfg,1,w:/:12:-#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 12;
-//        m_expectedParam.effect = LedEffect_FadeIn;
-//        m_expectedParam.extra[0] = LedFadeType_Linear;
-//        SaveCfgTestWhitePositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_white_led_fade_in_linear_instance;
-//
-//struct save_cfg_parsed_if_white_led_fade_in_exponential : SaveCfgTestWhitePositiveTestOnce
-//{
-//    save_cfg_parsed_if_white_led_fade_in_exponential()
-//        : SaveCfgTestWhitePositiveTestOnce(F("save_cfg_parsed_if_white_led_fade_in_exponential"), F("$save-cfg,1,w:/:13:e#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 13;
-//        m_expectedParam.effect = LedEffect_FadeIn;
-//        m_expectedParam.extra[0] = LedFadeType_Exponential;
-//        SaveCfgTestWhitePositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_white_led_fade_in_exponential_instance;
-//
-//struct save_cfg_parsed_if_white_led_fade_out_linear : SaveCfgTestWhitePositiveTestOnce
-//{
-//    save_cfg_parsed_if_white_led_fade_out_linear()
-//        : SaveCfgTestWhitePositiveTestOnce(F("save_cfg_parsed_if_white_led_fade_out_linear"), F("$save-cfg,1,w:\\:12:-#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 12;
-//        m_expectedParam.effect = LedEffect_FadeOut;
-//        m_expectedParam.extra[0] = LedFadeType_Linear;
-//        SaveCfgTestWhitePositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_white_led_fade_out_linear_instance;
-//
-//struct save_cfg_parsed_if_white_led_fade_out_exponential : SaveCfgTestWhitePositiveTestOnce
-//{
-//    save_cfg_parsed_if_white_led_fade_out_exponential()
-//        : SaveCfgTestWhitePositiveTestOnce(F("save_cfg_parsed_if_white_led_fade_out_exponential"), F("$save-cfg,1,w:\\:13:e#"))
-//    {}
-//
-//    void once()
-//    {
-//        m_expectedParam.ticks = 13;
-//        m_expectedParam.effect = LedEffect_FadeOut;
-//        m_expectedParam.extra[0] = LedFadeType_Exponential;
-//        SaveCfgTestWhitePositiveTestOnce::once();
-//    }
-//} save_cfg_parsed_if_white_led_fade_out_exponential_instance;
-//
-//#endif // end WhiteLedPositiveTests
-
+#endif // end SaveCfgTests
 
 void setup()
 {
@@ -619,21 +360,5 @@ void setup()
 
 void loop()
 {
-    static bool firstRun = true;
-
-    if (firstRun)
-    {
-        Serial.print("--> ");
-        Serial.println(freeMemory());
-    }
-
     Test::run();
-
-    if (firstRun)
-    {
-        Serial.print("<-- ");
-        Serial.println(freeMemory());
-    }
-
-    firstRun = false;
 }
