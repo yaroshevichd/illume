@@ -37,6 +37,16 @@
 			<locationURI>ArduinoPivateLibPath/IllumeUtils</locationURI>
 		</link>
 		<link>
+			<name>Libraries/Illume_CommandParsers</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/Illume_CommandParsers</locationURI>
+		</link>
+		<link>
+			<name>Libraries/Illume_LedProcessor</name>
+			<type>2</type>
+			<locationURI>ArduinoPivateLibPath/Illume_LedProcessor</locationURI>
+		</link>
+		<link>
 			<name>arduino/core</name>
 			<type>2</type>
 			<locationURI>ArduinoPlatformPath/cores/arduino</locationURI>

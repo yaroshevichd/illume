@@ -25,6 +25,11 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/TaskScheduler/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/IllumeUtils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/IllumeUtils/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/EEPROM}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/Illume_LedProcessor}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/Illume_LedProcessor/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/ArduinoUnit}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/ArduinoUnit/src}&quot;"/>
 								</option>
 								<inputType id="it.baeyens.arduino.compiler.cpp.sketch.input.1658291453" name="CPP source files" superClass="it.baeyens.arduino.compiler.cpp.sketch.input"/>
 							</tool>
@@ -36,6 +41,11 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/TaskScheduler/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/IllumeUtils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/IllumeUtils/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/EEPROM}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/Illume_LedProcessor}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/Illume_LedProcessor/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/ArduinoUnit}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/illume/Libraries/ArduinoUnit/src}&quot;"/>
 								</option>
 								<inputType id="it.baeyens.arduino.compiler.c.sketch.input.1834850915" name="C Source Files" superClass="it.baeyens.arduino.compiler.c.sketch.input"/>
 							</tool>

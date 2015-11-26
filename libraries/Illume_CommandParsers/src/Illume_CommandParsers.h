@@ -1,6 +1,7 @@
 #ifndef __ILLUME_UTILS_H__
 #define __ILLUME_UTILS_H__
 
+#include <Illume_LedProcessor.h>
 #include <Stream.h>
 
 enum CommandType
@@ -8,31 +9,6 @@ enum CommandType
     CommandType_SaveCfg,
     CommandType_LoadCfg,
     CommandType_None
-};
-
-enum LedName
-{
-    LedName_None = 0,
-    LedName_Red = 'r',
-    LedName_Green = 'g',
-    LedName_Blue = 'b',
-    LedName_Yellow = 'y',
-    LedName_White = 'w'
-};
-
-enum LedEffect
-{
-    LedEffect_None = 0,
-    LedEffect_On = 'x',
-    LedEffect_Off = 'o',
-    LedEffect_FadeIn = '/',
-    LedEffect_FadeOut = '\\'
-};
-
-enum LedFadeType
-{
-    LedFadeType_Linear = '-',
-    LedFadeType_Exponential = 'e'
 };
 
 struct Command
@@ -54,20 +30,8 @@ struct Command
 
 struct SaveCfgCommand : Command
 {
-    struct SaveCfgParam : public CommandParam
+    struct SaveCfgParam : public CommandParam, public LedAnimationStep
     {
-        LedName name;
-        LedEffect effect;
-        int ticks;
-        char extra[2];
-
-        SaveCfgParam()
-            : name(LedName_None)
-            , effect(LedEffect_None)
-            , ticks(0)
-        {
-            extra[0] = extra[1] = 0;
-        }
     };
 
     SaveCfgCommand(const int argc, CommandParam* const argv)
@@ -107,7 +71,6 @@ public:
     virtual const Command* command() = 0;
 };
 
-extern CommandParser* g_CmdParser;
-
+CommandParser* getTextualCommandParser();
 
 #endif // __ILLUME_UTILS_H__

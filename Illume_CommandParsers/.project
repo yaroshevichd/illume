@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>Illume_CommandParsers</name>
+	<comment></comment>
+	<projects>
+	</projects>
+	<buildSpec>
+	</buildSpec>
+	<natures>
+	</natures>
+	<linkedResources>
+		<link>
+			<name>Illume_CommandParsers.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/libraries/Illume_CommandParsers/src/Illume_CommandParsers.h</locationURI>
+		</link>
+		<link>
+			<name>TextualCommandParsers.cpp</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/libraries/Illume_CommandParsers/src/TextualCommandParsers.cpp</locationURI>
+		</link>
+	</linkedResources>
+</projectDescription>

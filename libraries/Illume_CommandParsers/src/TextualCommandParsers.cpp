@@ -1,6 +1,6 @@
-//#define _DEBUG_CMD_PARSER
+//#define _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+#include <Illume_CommandParsers.h>
 #include <Arduino.h>
-#include "IllumeUtils.h"
 #include <stdlib.h>
 
 #define TOKEN_COMMAND_DELIMITER '$'
@@ -9,76 +9,140 @@
 #define TOKEN_COMMAND_ARG_FIELD_DELIMITER ':'
 
 
-LedName parseLedName(const String& token)
+bool parseLedName(const String& token, LedName& result)
 {
-#ifdef _DEBUG_CMD_PARSER
-    Serial.print("CmdParser: parseLedName(");
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+    Serial.print(F("TextualCommandParser: parseLedName("));
     Serial.print(token);
-    Serial.println(")");
+    Serial.println(F(")"));
 #endif
     if (token.length() == 1)
     {
         switch (token[0])
         {
         case 'r':
-            return LedName_Red;
+            result = LedName_Red;
+            return true;
         case 'g':
-            return LedName_Green;
+            result = LedName_Green;
+            return true;
         case 'b':
-            return LedName_Blue;
+            result = LedName_Blue;
+            return true;
         case 'y':
-            return LedName_Yellow;
+            result = LedName_Yellow;
+            return true;
         case 'w':
-            return LedName_White;
+            result = LedName_White;
+            return true;
+        case '*':
+            result = LedName_Any;
+            return true;
         }
     }
-   return LedName_None;
+    return false;
 }
 
-LedEffect parseLedEffect(const String& token)
+bool parseLedAnimation(const String& token, LedAnimation& result)
 {
-#ifdef _DEBUG_CMD_PARSER
-    Serial.print("CmdParser: parseLedEffect(");
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+    Serial.print(F("TextualCommandParser: parseLedEffect("));
     Serial.print(token);
-    Serial.println(")");
+    Serial.println(F(")"));
 #endif
     if (token.length() == 1)
     {
         switch (token[0])
         {
         case 'x':
-            return LedEffect_On;
+            result = LedAnimation_On;
+            return true;
         case 'o':
-            return LedEffect_Off;
+            result = LedAnimation_Off;
+            return true;
         case '/':
-             return LedEffect_FadeIn;
+            result = LedAnimation_FadeIn;
+            return true;
         case '\\':
-            return LedEffect_FadeOut;
+            result = LedAnimation_FadeOut;
+            return true;
         }
     }
-    return LedEffect_None;
+    return false;
 }
 
-CommandType parseCommandType(const String& token)
+bool parseLedAnimationFactor(const String& token, LedAnimationFactor& result)
 {
-#ifdef _DEBUG_CMD_PARSER
-    Serial.print("CmdParser: parseCommandType(");
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+    Serial.print(F("TextualCommandParser: parseLedAnimationFactor("));
     Serial.print(token);
-    Serial.println(")");
+    Serial.println(F(")"));
+#endif
+    if (token.length() == 1)
+    {
+        switch (token[0])
+        {
+        case 'q':
+            result = LedAnimationFactor_Quarter;
+            return true;
+        case 'h':
+            result = LedAnimationFactor_Half;
+            return true;
+        case '1':
+            result = LedAnimationFactor_Once;
+            return true;
+        case '2':
+            result = LedAnimationFactor_Twice;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool parseBool(const String& token, bool& result)
+{
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+    Serial.print(F("TextualCommandParser: parseBool("));
+    Serial.print(token);
+    Serial.println(F(")"));
+#endif
+    if (token.length() == 1)
+    {
+        switch (token[0])
+        {
+        case '1':
+            result = true;
+            return true;
+        case '0':
+            result = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool parseCommandType(const String& token, CommandType& result)
+{
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+    Serial.print(F("TextualCommandParser: parseCommandType("));
+    Serial.print(token);
+    Serial.println(F(")"));
 #endif
     if (token.equals("save-cfg"))
     {
-        return CommandType_SaveCfg;
+        result = CommandType_SaveCfg;
+        return true;
     }
     else if (token.equals("load-cfg"))
     {
-        return CommandType_LoadCfg;
+        result = CommandType_LoadCfg;
+        return true;
     }
-    return CommandType_None;
+    return false;
 }
 
 
-class CommandParserImpl : public CommandParser
+class TextualCommandParser : public CommandParser
 {
     String token;
     int argsLeft;
@@ -92,7 +156,7 @@ class CommandParserImpl : public CommandParser
     const Command * cmdParsed;
 
 public:
-    CommandParserImpl()
+    TextualCommandParser()
         : token()
         , argsLeft(0)
         , fieldIndex(0)
@@ -107,8 +171,8 @@ public:
 
     virtual void reset()
     {
-#ifdef _DEBUG_CMD_PARSER
-        Serial.println("CmdParser::reset");
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+        Serial.println(F("TextualCommandParser::reset"));
 #endif
         resetState();
         resetToken();
@@ -118,8 +182,8 @@ public:
 
     virtual ParserState parse(Stream &input)
     {
-#ifdef _DEBUG_CMD_PARSER
-        Serial.println("CmdParser::parse");
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+        Serial.println(F("TextualCommandParser::parse"));
 #endif
         if (state == ParserState_Done)
         {
@@ -143,7 +207,11 @@ public:
                     break;
                 case 0:
                 case -1:
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+                    Serial.println(F("TextualCommandParser::parse: EOL/EOS occurred!"));
+#endif
                     moreDataRequired = true;
+                    skip(input);
                     break;
                 default:
                     break;
@@ -155,7 +223,7 @@ public:
                 {
                 case TOKEN_COMMAND_END_DELIMITER:
                 case TOKEN_COMMAND_ARGS_DELIMITER:
-                    cmdType = parseCommandType(token);
+                    parseCommandType(token, cmdType);
                     switch (cmdType)
                     {
                     case CommandType_SaveCfg:
@@ -170,6 +238,9 @@ public:
                     break;
                 case 0:
                 case -1:
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+                    Serial.println(F("TextualCommandParser::parse: EOL/EOS occurred!"));
+#endif
                     moreDataRequired = true;
                     skip(input);
                     break;
@@ -195,6 +266,9 @@ public:
                     break;
                 case 0:
                 case -1:
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+                    Serial.println(F("TextualCommandParser::parse: EOL/EOS occurred!"));
+#endif
                     moreDataRequired = true;
                     skip(input);
                     break;
@@ -229,6 +303,9 @@ public:
                     break;
                 case 0:
                 case -1:
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+                    Serial.println(F("TextualCommandParser::parse: EOL/EOS occurred!"));
+#endif
                     moreDataRequired = true;
                     skip(input);
                     break;
@@ -247,8 +324,8 @@ public:
 
     virtual const Command* command()
     {
-#ifdef _DEBUG_CMD_PARSER
-        Serial.println("CmdParser::command");
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+        Serial.println(F("TextualCommandParser::command"));
 #endif
         if (state == ParserState_Done && cmdParsed == NULL)
         {
@@ -311,10 +388,10 @@ private:
 
     void switchState(const ParserState new_state)
     {
-#ifdef _DEBUG_CMD_PARSER
-        Serial.print("CmdParser: ");
+#ifdef _ENABLE_TEXTUAL_COMMAND_PARSER_DEBUG
+        Serial.print(F("TextualCommandParser: "));
         Serial.print(state);
-        Serial.print(" -> ");
+        Serial.print(F(" -> "));
         Serial.println(new_state);
 #endif
         state = new_state;
@@ -337,33 +414,54 @@ private:
         switch (cmdType)
         {
         case CommandType_SaveCfg:
-            switch (fieldIndex)
             {
-            case 0:
-                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].name = parseLedName(token);
-                break;
-            case 1:
-                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].effect = parseLedEffect(token);
-                break;
-            case 2:
-                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].ticks = token.toInt();
-                break;
-            case 3:
-                reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].extra[0] = token[0];
-                if (token.length() > 1)
+                SaveCfgCommand::SaveCfgParam* params = reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams);
+                switch (fieldIndex)
                 {
-                    reinterpret_cast<SaveCfgCommand::SaveCfgParam*>(cmdParams)[index].extra[1] = token[1];
+                case 0:
+                    LedName ledName;
+                    if (parseLedName(token, ledName))
+                    {
+                        params[index].info.name = ledName;
+                    }
+                    break;
+                case 1:
+                    LedAnimation ledAnimation;
+                    if (parseLedAnimation(token, ledAnimation))
+                    {
+                        params[index].info.animation = ledAnimation;
+                    }
+                    break;
+                case 2:
+                    params[index].duration = token.toInt();
+                    break;
+                case 3:
+                    LedAnimationFactor ledAnimationFactor;
+                    if (parseLedAnimationFactor(token, ledAnimationFactor))
+                    {
+                        params[index].info.factor = ledAnimationFactor;
+                    }
+                    break;
+                case 4:
+                    bool ledStepOnce;
+                    if (parseBool(token, ledStepOnce))
+                    {
+                        params[index].info.once = ledStepOnce;
+                    }
+                    break;
+                default:
+                    break;
                 }
                 break;
-            default:
-                break;
             }
-            break;
         default:
             break;
         }
     }
 
-} g_CommandParserImpl;
+} g_TextualCommandParser;
 
-CommandParser* g_CmdParser = &g_CommandParserImpl;
+CommandParser* getTextualCommandParser()
+{
+    return &g_TextualCommandParser;
+}

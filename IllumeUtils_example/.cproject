@@ -27,6 +27,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/ArduinoUnit/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/IllumeUtils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/IllumeUtils/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/Illume_LedProcessor}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/Illume_LedProcessor/src}&quot;"/>
 								</option>
 								<inputType id="it.baeyens.arduino.compiler.cpp.sketch.input.1349545669" name="CPP source files" superClass="it.baeyens.arduino.compiler.cpp.sketch.input"/>
 							</tool>
@@ -44,6 +46,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/ArduinoUnit/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/IllumeUtils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/IllumeUtils/src}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/Illume_LedProcessor}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/IllumeUtils_example/Libraries/Illume_LedProcessor/src}&quot;"/>
 								</option>
 								<inputType id="it.baeyens.arduino.compiler.c.sketch.input.1880062027" name="C Source Files" superClass="it.baeyens.arduino.compiler.c.sketch.input"/>
 							</tool>
