@@ -106,7 +106,7 @@ environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPI
 environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.CPP.EXTRA_FLAGS/value=
 environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.CPP.FLAGS/delimiter=;
 environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.CPP.FLAGS/operation=replace
-environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.CPP.FLAGS/value=-c -g -Os ${A.COMPILER.WARNING_FLAGS} -fno-exceptions -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD
+environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.CPP.FLAGS/value=-c -g -Os ${A.COMPILER.WARNING_FLAGS} -fno-exceptions -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -save-temps
 environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.ELF2HEX.CMD/delimiter=;
 environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.ELF2HEX.CMD/operation=replace
 environment/project/it.baeyens.arduino.core.toolChain.release.2119989338/A.COMPILER.ELF2HEX.CMD/value=avr-objcopy

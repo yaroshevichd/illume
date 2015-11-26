@@ -8,7 +8,8 @@
  * Constants
  */
 
-#define MAX_ENTRIES (512 / 3)
+#define MAX_ENTRIES (256)
+//#define MAX_ENTRIES (1)
 #define LEDS_COUNT (5)
 #define LED_PIN_GREEN (3)
 #define LED_PIN_YELLOW (5)
@@ -32,12 +33,10 @@
  * Globals
  */
 Scheduler g_taskManager;
-Task g_taskSetupLeds(0, 1, &setupLeds, &g_taskManager, true);
-Task g_taskinitLedsConfig(0, 1, &initLedsConfig, &g_taskManager, true);
-Task g_taskLoadLedsConfig(0, 1, &loadLedsConfig, &g_taskManager, true);
-Task g_taskProcessLeds(15, -1, &processLeds, &g_taskManager, false);
-Task g_taskReadCommand(50, -1, &readCommandFromSerial, &g_taskManager, false);
-LedProcessor* g_LedsProcessors[] = {
+Task g_taskInit(0, 1, &initHandler, &g_taskManager, true);
+Task g_taskProcessLeds(15, -1, &processLedsHandler, &g_taskManager, false);
+Task g_taskProcessCommand(50, -1, &processCommandHandler, &g_taskManager, false);
+LedProcessor * const g_LedsProcessors[] = {
     createLedProcessor(LED_PIN_RED, LedName_Red),
     createLedProcessor(LED_PIN_GREEN, LedName_Green),
     createLedProcessor(LED_PIN_BLUE, LedName_Blue),
@@ -58,7 +57,7 @@ struct Configuration
 /*
  * Tasks handlers
  */
-void processLeds()
+void processLedsHandler()
 {
     for (byte i = 0; i < LEN(g_LedsProcessors); ++i)
     {
@@ -66,31 +65,17 @@ void processLeds()
     }
 }
 
-void setupLeds()
+void resetConfig()
 {
-    for (byte i = 0; i < LEN(g_LedsProcessors); ++i)
-    {
-        g_LedsProcessors[i]->init();
-    }
-}
-
-void initLedsConfig()
-{
-    EEPROM.get(0, g_Config);
-    if (g_Config.entries > MAX_ENTRIES)
-    {
-        memset(&g_Config, 0, sizeof(g_Config));
-        g_Config.durations.tick_ms = 15;
-        g_Config.durations.reading_ticks = 4;
-        g_Config.entries = 0;
-        EEPROM.put(0, g_Config);
-    }
+    memset(&g_Config, 0, sizeof(g_Config));
+    g_Config.durations.tick_ms = 15;
+    g_Config.durations.reading_ticks = 4;
+    g_Config.entries = 0;
+    EEPROM.put(0, g_Config);
 }
 
 void loadLedsConfig()
 {
-    EEPROM.get(0, g_Config);
-
     Serial.println(F("Configuration:"));
     Serial.print(F("  Tick (ms): "));
     Serial.println(g_Config.durations.tick_ms);
@@ -116,17 +101,28 @@ void loadLedsConfig()
     }
 
     g_taskProcessLeds.setInterval(g_Config.durations.tick_ms);
-    g_taskReadCommand.setInterval(
+    g_taskProcessCommand.setInterval(
         g_Config.durations.tick_ms * g_Config.durations.reading_ticks
     );
 
     for (byte i = 0; i < LEN(g_LedsProcessors); ++i)
     {
+        g_LedsProcessors[i]->init();
         g_LedsProcessors[i]->apply(g_Config.steps, g_Config.entries);
     }
 
     g_taskProcessLeds.enable();
-    g_taskReadCommand.enable();
+    g_taskProcessCommand.enable();
+}
+
+void initHandler()
+{
+    EEPROM.get(0, g_Config);
+    if (g_Config.entries > MAX_ENTRIES)
+    {
+        resetConfig();
+    }
+    loadLedsConfig();
 }
 
 void saveLedsConfig(const SaveCfgCommand::SaveCfgParam* steps, const byte stepsCount)
@@ -144,11 +140,11 @@ void saveLedsConfig(const SaveCfgCommand::SaveCfgParam* steps, const byte stepsC
     }
 }
 
-void readCommandFromSerial()
+CommandParser * const parser = getTextualCommandParser();
+void processCommandHandler()
 {
     if (Serial.available() > 0)
     {
-        static CommandParser * const parser = getTextualCommandParser();
         if (parser->parse(Serial) == ParserState_Done)
         {
             const Command* cmd = parser->command();
